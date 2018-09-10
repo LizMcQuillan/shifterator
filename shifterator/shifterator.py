@@ -3,7 +3,6 @@
 shifterator.py
 
 Author: Ryan J. Gallagher, Network Science Institute, Northeastern University
-Last updated: June 13th, 2018
 
 Requires: Python 3
 
@@ -21,8 +20,8 @@ import sys
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import rc
 from matplotlib import rcParams
+from matplotlib import font_manager
 from collections import Counter
 
 # ------------------------------------------------------------------------------
@@ -243,6 +242,8 @@ class Shift:
         # Check input of reference value
         if reference_value is None:
             s_avg_ref = self.get_weighted_score(type2freq_1, type2score_1)
+        else:
+            s_avg_ref = reference_value
         # Calculate relative diffs in freq
         type2p_diff = {t:type2p_2[t]-type2p_1[t] for t in types}
         # Calculate relative diffs in score and relative diff from ref
@@ -336,16 +337,15 @@ class Shift:
                 pos_s_diff, neg_s_diff)
 
     def get_shift_graph(self, top_n=50, width=7, height=15, insets=True,
-                        score_colors=('#ffff80','#FDFFD2','#3377ff', '#C4CAFC',
+                        score_colors=('#ffff80','#FDFFD2','#2f7cce', '#C4CAFC',
                                       '#9E75B7', '#FECC5D'),
                         width_scaling=1.2, bar_type_space_scaling=0.015,
                         xlabel=None, ylabel=None, title=None,
                         xlabel_fontsize=20, ylabel_fontsize=20, title_fontsize=18,
                         inset_pos_cumulative=[0.19, 0.12, 0.175, 0.175],
                         inset_pos_text_size=[0.81, 0.12, 0.08, 0.08],
-                        system_names=['Sys. 1', 'Sys. 2'],
+                        system_names=['Sys. 1', 'Sys. 2'], emojis=False,
                         show_plot=True, tight=True, serif=True, filename=None):
-        # TODO: **kwargs
         """
         Plot the simple shift graph between two systems of types
 
@@ -377,6 +377,7 @@ class Shift:
         ax
             matplotlib ax of shift graph. Displays shift graph if show_plot=True
         """
+        # TODO: **kwargs
         # TODO: wrap the parts into functions (basic bars, contributions, handling
         #       the labels, etc)
         # TODO: make a func that does all the checks and setting for plotting
@@ -388,6 +389,11 @@ class Shift:
             #rcParams['text.latex.unicode'] = True
             rcParams['font.family'] = 'serif'
             rcParams['mathtext.fontset'] = 'dejavuserif'
+        if emojis:
+            font_file = '/Users/ryangallagher/Downloads/Symbola-Emoji.ttf'
+            prop = font_manager.FontProperties(fname=font_file, size=16)
+        else:
+            prop = None
         # Get type score components
         if self.type2shift_score is None:
             self.get_shift_scores(details=False)
@@ -396,7 +402,7 @@ class Shift:
                         self.type2shift_score[t]) for t in self.type2s_diff]
         # Reverse sorting to get highest scores, then reverse top n for plotting order
         type_scores = sorted(type_scores, key=lambda x:abs(x[-1]),
-                             reverse=True)[:top_n]
+                      reverse=True)[:top_n]
         type_scores.reverse()
 
         # Plot scores, height:width ratio = 2.5:1
@@ -419,7 +425,8 @@ class Shift:
         # +freq+score, +freq-score, -freq+score, -freq-score, +s_diff, -s_diff
         total_comp_sums = self.get_shift_component_sums()
         comp_bars = [sum(total_comp_sums)] + list(reversed(total_comp_sums))
-        comp_scaling = abs(bar_ends[-1])/abs(comp_bars[0])
+        #comp_scaling = abs(bar_ends[-1])/abs(comp_bars[0])
+        comp_scaling = abs(bar_ends[np.argmax(bar_ends)]/abs(comp_bars[np.argmax(comp_bars)]))
         comp_bars = [comp_scaling*s for s in comp_bars]
         ys = [top_n+2,top_n+3.5,top_n+3.5,top_n+5,top_n+5,top_n+6.5,top_n+6.5]
         comp_colors = ['#707070'] + list(reversed(score_colors))
@@ -443,8 +450,8 @@ class Shift:
         # Add labels to bars
         ax,text_objs = _set_bar_labels(ax, bar_ends+comp_bars,
                                        list(range(1, len(type_scores)+1))+ys,
-                                       type_labels+symbols,
-                                       bar_type_space=bar_type_space)
+                                       type_labels+symbols, emojis=emojis,
+                                       prop = prop, bar_type_space=bar_type_space)
 
         # Adjust for width of word labels and make x-axis symmetric
         ax = _adjust_axes_for_labels(f, ax, bar_ends, comp_bars, text_objs,
@@ -684,7 +691,8 @@ def _get_bar_heights(type_scores, normalizer):
 
     return (heights_comp1, heights_comp2, bottoms, bar_ends)
 
-def _set_bar_labels(ax, bar_ends, bar_heights, type_labels, bar_type_space=0.02):
+def _set_bar_labels(ax, bar_ends, bar_heights, type_labels, bar_type_space=0.02,
+                    emojis=False, prop=None):
     text_objs = []
     for bar_n,height in enumerate(range(len(bar_ends))):
         height = bar_heights[bar_n]
@@ -695,8 +703,13 @@ def _set_bar_labels(ax, bar_ends, bar_heights, type_labels, bar_type_space=0.02)
         else:
             ha='left'
             space = bar_type_space
-        t = ax.text(width+space, height, type_labels[bar_n],
-                    ha=ha, va='center',fontsize=13)
+        label = type_labels[bar_n]
+        if (not emojis) or ('-' in label) or ('+' in label):
+            t = ax.text(width+space, height, label,
+                        ha=ha, va='center',fontsize=13)
+        else:
+            t = ax.text(width+space, height, label,
+                        ha=ha, va='center', fontproperties=prop)
         text_objs.append(t)
     return (ax, text_objs)
 
@@ -742,6 +755,13 @@ def get_cumulative_inset(f, type2shift_score, top_n,
     # Reverse the y-axis
     y_min,y_max = in_ax.get_ylim()
     in_ax.set_ylim((y_max, y_min))
+    # Set x-axis limits
+    total_score = cum_scores[-1]
+    x_min,x_max = in_ax.get_xlim()
+    if np.sign(total_score) == -1:
+        in_ax.set_xlim((x_min, 0))
+    else:
+        in_ax.set_xlim((0, x_max))
     # Plot top_n line
     x_min,x_max = in_ax.get_xlim()
     in_ax.plot([x_min,x_max], [top_n,top_n], '-', color='black', linewidth=0.5)
