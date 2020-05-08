@@ -12,14 +12,8 @@ import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 
-# import shifterator  -- don't do this, it's bad for a package, and has lots of consequences when the package is used in development
-import shifterator.shifterator as shifterator 
+import shifterator.shifterator as shifterator
 from .helper import *
-# I don't think this works: from shifterator.shifterator.helper import *
-# To import a module inside a package within the package, you use the dot as a reference to the package itself
-# like this: from .helper import * OR
-# you can do: from shifterator.helper import * --- but this would only work if you don't have a module that has the same name as the package.
-# but in this case, you do. so we can't use: from shifterator.helper import *
 
 # ------------------------------------------------------------------------------
 # --------------------------- Relative shift classes ---------------------------
@@ -107,8 +101,9 @@ class EntropyShift(RelativeShift):
     """
     def __init__(self, reference, comparison, base=2, stop_lens=None):
         # Get surprisal scores
-        type2s_ref, type2s_comp = get_surprisal_scores(reference, comparison,
-                                                       base=2, alpha=1)
+        type2p_ref,type2p_comp,type2s_ref,type2s_comp = get_surprisal_scores(reference,
+                                                                             comparison,
+                                                                             base=2, alpha=1)
         # Set zero surprisal scores for types that do not appear
         types = set(type2s_ref.keys()).union(set(type2s_comp.keys()))
         for t in types:
@@ -118,7 +113,18 @@ class EntropyShift(RelativeShift):
                 type2s_comp[t] = 0
         # Initialize shift
         RelativeShift.__init__(self, reference, comparison, type2s_ref,
-                               type2s_comp, stop_lens, reference_value)
+                               type2s_comp, stop_lens, reference_value=0)
+        self.type2p_ref = type2p_ref
+        self.type2p_comp = type2p_comp
+
+    def get_shift_graph(self, top_n=50, normalize=True, text_size_inset=True,
+                        cumulative_inset=True, show_plot=True, filename=None,
+                        detailed=False, **kwargs):
+        RelativeShift.get_shift_graph(self, top_n=top_n, normalize=normalize,
+                                      text_size_inset=text_size_inset,
+                                      cumulative_inset=cumulative_inset,
+                                      show_plot=show_plot, filename=filename,
+                                      detailed=detailed, **kwargs)
 
 class KLDivergenceShift(RelativeShift):
     """
@@ -147,8 +153,20 @@ class KLDivergenceShift(RelativeShift):
             warnings.warn(warning, Warning)
             return
         # Get surprisal scores
-        type2s_ref, type2s_comp = get_surprisal_scores(reference, comparison,
-                                                       base=2, alpha=1)
+        type2p_ref,type2p_comp,type2s_ref,type2s_comp = get_surprisal_scores(reference,
+                                                                             comparison,
+                                                                             base=2, alpha=1)
         # Initialize shift
         RelativeShift.__init__(self, comparison, comparison, type2s_ref,
                                type2s_comp, stop_lens, reference_value=0)
+        self.type2p_ref = type2p_ref
+        self.type2p_comp = type2p_comp
+
+    def get_shift_graph(self, top_n=50, normalize=True, text_size_inset=True,
+                        cumulative_inset=True, show_plot=True, filename=None,
+                        detailed=False, **kwargs):
+        RelativeShift.get_shift_graph(self, top_n=top_n, normalize=normalize,
+                                      text_size_inset=text_size_inset,
+                                      cumulative_inset=cumulative_inset,
+                                      show_plot=show_plot, filename=filename,
+                                      detailed=detailed, **kwargs)
